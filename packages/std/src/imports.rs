@@ -1,10 +1,7 @@
-use std::convert::TryInto;
 use std::vec::Vec;
 
 use crate::addresses::{Addr, CanonicalAddr};
-use crate::errors::{
-    HashCalculationError, RecoverPubkeyError, StdError, StdResult, SystemError, VerificationError,
-};
+use crate::errors::{RecoverPubkeyError, StdError, StdResult, SystemError, VerificationError};
 use crate::import_helpers::{from_high_half, from_low_half};
 use crate::memory::{alloc, build_region, consume_region, Region};
 use crate::results::SystemResult;
@@ -68,7 +65,6 @@ extern "C" {
     /// Returns 0 on verification success, 1 on verification failure, and values
     /// greater than 1 in case of error.
     fn ed25519_batch_verify(messages_ptr: u32, signatures_ptr: u32, public_keys_ptr: u32) -> u32;
-    fn sha1_calculate(inputs_ptr: u32) -> u64;
 
     /// Writes a debug message (UFT-8 encoded) to the host for debugging purposes.
     /// The host is free to log or process this in any way it considers appropriate.
@@ -357,28 +353,6 @@ impl Api for ExternalApi {
             5 => Err(VerificationError::InvalidPubkeyFormat),
             10 => Err(VerificationError::GenericErr),
             error_code => Err(VerificationError::unknown_err(error_code)),
-        }
-    }
-
-    fn sha1_calculate(&self, inputs: &[&[u8]]) -> Result<[u8; 20], HashCalculationError> {
-        let inputs_encoded = encode_sections(inputs);
-        let inputs_send = build_region(&inputs_encoded);
-        let inputs_send_ptr = &*inputs_send as *const Region as u32;
-
-        let result = unsafe { sha1_calculate(inputs_send_ptr) };
-        let error_code = from_high_half(result);
-        let hash_ptr = from_low_half(result);
-        match error_code {
-            0 => {
-                let hash = unsafe { consume_region(hash_ptr as *mut Region) };
-                let hash_array: [u8; 20] = hash.try_into().unwrap_or_else(|v: Vec<u8>| {
-                    panic!("Expected a Vec of length {} but it was {}", 20, v.len())
-                });
-                Ok(hash_array)
-            }
-            1 => Err(HashCalculationError::InputsTooLarger),
-            2 => panic!("Error code 2 unused since CosmWasm 0.15. This is a bug in the VM."),
-            error_code => Err(HashCalculationError::unknown_err(error_code)),
         }
     }
 

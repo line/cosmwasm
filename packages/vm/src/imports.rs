@@ -3,8 +3,7 @@
 use std::cmp::max;
 
 use cosmwasm_crypto::{
-    ed25519_batch_verify, ed25519_verify, secp256k1_recover_pubkey, secp256k1_verify,
-    sha1_calculate, CryptoError,
+    ed25519_batch_verify, ed25519_verify, secp256k1_recover_pubkey, secp256k1_verify, CryptoError,
 };
 use cosmwasm_crypto::{
     ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, MESSAGE_HASH_MAX_LEN,
@@ -51,15 +50,6 @@ const MAX_LENGTH_ED25519_MESSAGE: usize = 128 * 1024;
 /// This is an arbitrary value, for performance / memory contraints. If you need to batch-verify a
 /// larger number of signatures, let us know.
 const MAX_COUNT_ED25519_BATCH: usize = 256;
-/// Max count of a inputs for sha1.
-/// A limit is set to prevent malicious excessive input.
-/// Now, we limit ourselves to only small sizes for use cases in Uuid.
-pub const MAX_COUNT_SHA1_INPUT: usize = 4;
-/// Max length of a input for sha1
-/// After executing the crypto bench according to this,
-/// the gas factor is determined based on the result.
-/// If you modify this value, you need to adjust the gas factor.
-pub const MAX_LENGTH_SHA1_MESSAGE: usize = 80;
 
 /// Max length for a debug message
 const MAX_LENGTH_DEBUG: usize = 2 * MI;
@@ -362,43 +352,11 @@ pub fn do_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 pub fn do_sha1_calculate<A: BackendApi, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    hash_inputs_ptr: u32,
+    _env: &Environment<A, S, Q>,
+    _hash_inputs_ptr: u32,
 ) -> VmResult<u64> {
-    let hash_inputs = read_region(
-        &env.memory(),
-        hash_inputs_ptr,
-        (MAX_LENGTH_SHA1_MESSAGE + 4) * MAX_COUNT_SHA1_INPUT,
-    )?;
-
-    let hash_inputs = decode_sections(&hash_inputs);
-    let result = sha1_calculate(&hash_inputs);
-    let mut gas_cost = env.gas_config.sha1_calculate_cost;
-    //For sha1, the execution time does not increase linearly by the number of updates(count of inputs).
-    if hash_inputs.len() > 1 {
-        gas_cost += (env.gas_config.sha1_calculate_cost * (hash_inputs.len() - 1) as u64) / 2;
-    }
-    let gas_info = GasInfo::with_cost(gas_cost);
-    process_gas_info::<A, S, Q>(env, gas_info)?;
-    match result {
-        Ok(hash) => {
-            let hash_ptr = write_to_contract::<A, S, Q>(env, &hash)?;
-            Ok(to_low_half(hash_ptr))
-        }
-        Err(err) => match err {
-            CryptoError::InputsTooLarger { .. } | CryptoError::InputTooLong { .. } => {
-                Ok(to_high_half(err.code()))
-            }
-            CryptoError::BatchErr { .. }
-            | CryptoError::InvalidPubkeyFormat { .. }
-            | CryptoError::InvalidSignatureFormat { .. }
-            | CryptoError::GenericErr { .. }
-            | CryptoError::InvalidHashFormat { .. }
-            | CryptoError::InvalidRecoveryParam { .. } => {
-                panic!("Error must not happen for this call")
-            }
-        },
-    }
+    // error code for generic error
+    Ok(to_high_half(10))
 }
 
 /// Prints a debug message to console.

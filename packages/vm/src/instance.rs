@@ -172,10 +172,8 @@ where
             Function::new_native_with_env(store, env.clone(), do_ed25519_batch_verify),
         );
 
-        // Calculates the inputs using the sha1
-        // Returns 0 if inputs are some invalid and pointer to result region otherwise.
-        // Ownership of the inputs pointer is not transferred to the host.
-        // Ownership of the hash pointer is transferred to the contract.
+        // No longer supported
+        // This function only returns an error to wasm.
         env_imports.insert(
             "sha1_calculate",
             Function::new_native_with_env(store, env.clone(), do_sha1_calculate),
