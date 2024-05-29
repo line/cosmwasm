@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        contract: [burner, crypto-verify, cyberpunk, hackatom, ibc-reflect, ibc-reflect-send, queue, query-queue, reflect, floaty, staking, voting-with-uuid]
+        contract: [burner, crypto-verify, cyberpunk, hackatom, ibc-reflect, ibc-reflect-send, queue, query-queue, reflect, floaty, staking]
     env:
       working-directory: ./contracts/${{ matrix.contract }}
     steps:
